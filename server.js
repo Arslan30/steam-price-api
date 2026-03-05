@@ -5,29 +5,58 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 const cache = {};
+const CACHE_TTL = 5 * 60 * 1000;        // 5 minutes
+const CACHE_CLEANUP_INTERVAL = 10 * 60 * 1000; // prune every 10 minutes
+const STEAM_FETCH_TIMEOUT = 8000;        // 8 seconds
+
+// Prevent cache growing forever
+setInterval(() => {
+  const now = Date.now();
+  for (const key in cache) {
+    if (now - cache[key].timestamp >= CACHE_TTL) {
+      delete cache[key];
+    }
+  }
+}, CACHE_CLEANUP_INTERVAL);
 
 app.get('/price', async (req, res) => {
   const item = req.query.item;
-  if (!item) return res.status(400).send('Missing item name');
+  if (!item) return res.status(400).json({ error: 'Missing item name' });
 
   const key = item.trim().toLowerCase();
-  if (cache[key] && Date.now() - cache[key].timestamp < 300000) {
+
+  if (cache[key] && Date.now() - cache[key].timestamp < CACHE_TTL) {
     return res.json({ price: cache[key].price, cached: true });
   }
 
-  const encoded = encodeURIComponent(item);
+  const encoded = encodeURIComponent(item.trim());
   const url = `https://steamcommunity.com/market/priceoverview/?appid=730&currency=1&market_hash_name=${encoded}`;
 
+  // Timeout so a hanging Steam request doesn't stall the server
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), STEAM_FETCH_TIMEOUT);
+
   try {
-    const response = await fetch(url);
-    if (!response.ok) return res.status(response.status).send('Steam error');
+    const response = await fetch(url, { signal: controller.signal });
+    clearTimeout(timeout);
+
+    if (!response.ok) {
+      return res.status(response.status).json({ error: `Steam returned ${response.status}` });
+    }
 
     const data = await response.json();
     const price = data.median_price || data.lowest_price || null;
+
     cache[key] = { price, timestamp: Date.now() };
     res.json({ price, cached: false });
+
   } catch (err) {
-    res.status(500).send('Server error');
+    clearTimeout(timeout);
+    if (err.name === 'AbortError') {
+      return res.status(504).json({ error: 'Steam request timed out' });
+    }
+    console.error('Fetch error:', err);
+    res.status(500).json({ error: 'Server error' });
   }
 });
 
