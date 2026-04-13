@@ -5,9 +5,9 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 const cache = {};
-const CACHE_TTL = 5 * 60 * 1000;        // 5 minutes
-const CACHE_CLEANUP_INTERVAL = 10 * 60 * 1000; // prune every 10 minutes
-const STEAM_FETCH_TIMEOUT = 8000;        // 8 seconds
+const CACHE_TTL = 5 * 60 * 1000;
+const CACHE_CLEANUP_INTERVAL = 10 * 60 * 1000;
+const STEAM_FETCH_TIMEOUT = 8000;
 
 // Prevent cache growing forever
 setInterval(() => {
@@ -32,7 +32,6 @@ app.get('/price', async (req, res) => {
   const encoded = encodeURIComponent(item.trim());
   const url = `https://steamcommunity.com/market/priceoverview/?appid=730&currency=1&market_hash_name=${encoded}`;
 
-  // Timeout so a hanging Steam request doesn't stall the server
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), STEAM_FETCH_TIMEOUT);
 
