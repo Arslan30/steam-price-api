@@ -1,10 +1,38 @@
 import express from 'express';
 import fetch from 'node-fetch';
+import fs from 'fs';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-const cache = {};
+const CACHE_FILE = '/tmp/price_cache.json';
+
+function loadCache() {
+  try {
+    if (fs.existsSync(CACHE_FILE)) {
+      const data = fs.readFileSync(CACHE_FILE, 'utf8');
+      return JSON.parse(data);
+    }
+  } catch (error) {
+    console.error('Cache load error:', error);
+  }
+
+  return {};
+}
+
+function saveCache(cache) {
+  try {
+    fs.writeFileSync(
+      CACHE_FILE,
+      JSON.stringify(cache),
+      'utf8'
+    );
+  } catch (error) {
+    console.error('Cache save error:', error);
+  }
+}
+
+const cache = loadCache();
 const CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours — reduced Steam hits dramatically
 const CACHE_CLEANUP_INTERVAL = 60 * 60 * 1000;
 const STEAM_FETCH_TIMEOUT = 8000;
