@@ -3,6 +3,13 @@ import fetch from 'node-fetch';
 import fs from 'fs';
 
 const app = express();
+app.get('/health', (req, res) => {
+  res.json({
+    status: 'ok',
+    cachedItems: Object.keys(cache).length,
+    uptime: process.uptime()
+  });
+});
 const PORT = process.env.PORT || 3000;
 
 const CACHE_FILE = '/tmp/price_cache.json';
@@ -39,8 +46,17 @@ const STEAM_FETCH_TIMEOUT = 8000;
 
 setInterval(() => {
   const now = Date.now();
+  let changed = false;
+
   for (const key in cache) {
-    if (now - cache[key].timestamp >= CACHE_TTL) delete cache[key];
+    if (now - cache[key].timestamp >= CACHE_TTL) {
+      delete cache[key];
+      changed = true;
+    }
+  }
+
+  if (changed) {
+    saveCache(cache);
   }
 }, CACHE_CLEANUP_INTERVAL);
 
@@ -61,7 +77,13 @@ app.get('/price', async (req, res) => {
   const timeout = setTimeout(() => controller.abort(), STEAM_FETCH_TIMEOUT);
 
   try {
-    const response = await fetch(url, { signal: controller.signal });
+const response = await fetch(url, {
+  signal: controller.signal,
+  headers: {
+    'User-Agent': '...',
+    'Accept': 'application/json'
+  }
+});
     clearTimeout(timeout);
 
     if (!response.ok) {
