@@ -73,6 +73,7 @@ app.get('/price', async (req, res) => {
 
     cache[key] = { price, timestamp: Date.now() };
     res.json({ price, cached: false });
+    saveCache(cache);
 
   } catch (err) {
     clearTimeout(timeout);
