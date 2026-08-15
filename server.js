@@ -5,17 +5,14 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 const cache = {};
-const CACHE_TTL = 5 * 60 * 1000;
-const CACHE_CLEANUP_INTERVAL = 10 * 60 * 1000;
+const CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours — reduced Steam hits dramatically
+const CACHE_CLEANUP_INTERVAL = 60 * 60 * 1000;
 const STEAM_FETCH_TIMEOUT = 8000;
 
-// Prevent cache growing forever
 setInterval(() => {
   const now = Date.now();
   for (const key in cache) {
-    if (now - cache[key].timestamp >= CACHE_TTL) {
-      delete cache[key];
-    }
+    if (now - cache[key].timestamp >= CACHE_TTL) delete cache[key];
   }
 }, CACHE_CLEANUP_INTERVAL);
 
@@ -30,7 +27,7 @@ app.get('/price', async (req, res) => {
   }
 
   const encoded = encodeURIComponent(item.trim());
-  const url = `https://api.steamwebapi.com/market/item?key=YOUR_API_KEY&game=cs2&market_hash_name=${encoded}`;
+  const url = `https://steamcommunity.com/market/priceoverview/?appid=730&currency=1&market_hash_name=${encoded}`;
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), STEAM_FETCH_TIMEOUT);
@@ -51,14 +48,10 @@ app.get('/price', async (req, res) => {
 
   } catch (err) {
     clearTimeout(timeout);
-    if (err.name === 'AbortError') {
-      return res.status(504).json({ error: 'Steam request timed out' });
-    }
+    if (err.name === 'AbortError') return res.status(504).json({ error: 'Steam request timed out' });
     console.error('Fetch error:', err);
     res.status(500).json({ error: 'Server error' });
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`API running on port ${PORT}`);
-});
+app.listen(PORT, () => console.log(`API running on port ${PORT}`));
