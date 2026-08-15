@@ -30,7 +30,7 @@ app.get('/price', async (req, res) => {
   }
 
   const encoded = encodeURIComponent(item.trim());
-  const url = `https://steamcommunity.com/market/priceoverview/?appid=730&currency=1&market_hash_name=${encoded}`;
+  const url = `https://api.steamwebapi.com/market/item?key=YOUR_API_KEY&game=cs2&market_hash_name=${encoded}`;
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), STEAM_FETCH_TIMEOUT);
